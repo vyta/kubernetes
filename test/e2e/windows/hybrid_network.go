@@ -55,44 +55,42 @@ var _ = SIGDescribe("Hybrid cluster network", func() {
 
 			By("checking connectivity to 8.8.8.8 53 (google.com) from Linux")
 			assertConsistentConnectivity(f, linuxPod.ObjectMeta.Name, linuxOS, linuxCheck("8.8.8.8", 53))
-			//checkLinuxConnectivity(f, linuxPod.ObjectMeta.Name, "8.8.8.8", 53)
 
 			By("checking connectivity to www.google.com from Windows")
 			assertConsistentConnectivity(f, windowsPod.ObjectMeta.Name, windowsOS, windowsCheck("www.google.com"))
-			//checkWindowsConnectivity(f, windowsPod.ObjectMeta.Name, "www.google.com")
 
 			By("checking connectivity from Linux to Windows")
 			assertConsistentConnectivity(f, linuxPod.ObjectMeta.Name, linuxOS, linuxCheck(windowsPod.Status.PodIP, 80))
-			//checkLinuxConnectivity(f, linuxPod.ObjectMeta.Name, windowsPod.Status.PodIP, 80)
 
 			By("checking connectivity from Windows to Linux")
 			assertConsistentConnectivity(f, windowsPod.ObjectMeta.Name, windowsOS, windowsCheck(linuxPod.Status.PodIP))
-			//checkWindowsConnectivity(f, windowsPod.ObjectMeta.Name, linuxPod.Status.PodIP)
 
 		})
 
 	})
 })
 
+var (
+	duration      = "10s"
+	poll_interval = "1s"
+	timeout       = 10 // seconds
+)
+
 func assertConsistentConnectivity(f *framework.Framework, podName string, os string, cmd []string) {
 	Consistently(func() error {
 		By(fmt.Sprintf("checking connectivity of %s-container in %s", os, podName))
 		_, _, err := f.ExecCommandInContainerWithFullOutput(podName, os+"-container", cmd...)
 		return err
-	}).ShouldNot(HaveOccurred())
+	}, duration, poll_interval).ShouldNot(HaveOccurred())
 }
 
-func linuxCheck(address string, port int) string {
+func linuxCheck(address string, port int) []string {
 	nc := fmt.Sprintf("nc -vz %s %v", address, port)
 	cmd := []string{"/bin/sh", "-c", nc}
 	return cmd
 }
 
-var (
-	timeout = 10
-)
-
-func windowsCheck(address string) {
+func windowsCheck(address string) []string {
 	curl := fmt.Sprintf("curl.exe %s --connect-timeout %v --fail", address, timeout)
 	cmd := []string{"cmd", "/c", curl}
 	return cmd
