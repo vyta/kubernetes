@@ -57,7 +57,7 @@ var _ = SIGDescribe("Hybrid cluster network", func() {
 			By("checking connectivity to 8.8.8.8 53 (google.com) from linux")
 			checkLinuxConnectivity(f, linuxPod.ObjectMeta.Name, "8.8.8.8", "53")
 
-			By("checkin connectivity to www.google.com from windows")
+			By("checking connectivity to www.google.com from windows")
 			checkWindowsConnectivity(f, windowsPod.ObjectMeta.Name, "www.google.com")
 
 			By("checking connectivity from linux to windows")
