@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	linuxOS    = "linux"
-	windowsOS  = "windows"
+	linuxOS   = "linux"
+	windowsOS = "windows"
 )
 
 var (
@@ -48,31 +48,33 @@ var _ = SIGDescribe("Hybrid cluster network", func() {
 
 	Context("for all supported CNIs", func() {
 
-		It("should have stable networking for linux and windows pods", func() {
+		It("should have stable networking for Linux and Windows pods", func() {
 			By("creating linux and windows pods")
 			linuxPod := createTestPod(f, linuxBusyBoxImage, linuxOS)
 			windowsPod := createTestPod(f, windowsBusyBoximage, windowsOS)
 
-			By("checking connectivity to 8.8.8.8 53 (google.com) from linux")
-			checkLinuxConnectivity(f, linuxPod.ObjectMeta.Name, "8.8.8.8", 53)
+			By("checking connectivity to 8.8.8.8 53 (google.com) from Linux")
+			assertConsistentConnectivity(f, linuxPod.ObjectMeta.Name, linuxOS, linuxCheck("8.8.8.8", 53))
+			//checkLinuxConnectivity(f, linuxPod.ObjectMeta.Name, "8.8.8.8", 53)
 
-			By("checking connectivity to www.google.com from windows")
-			checkWindowsConnectivity(f, windowsPod.ObjectMeta.Name, "www.google.com")
+			By("checking connectivity to www.google.com from Windows")
+			assertConsistentConnectivity(f, windowsPod.ObjectMeta.Name, windowsOS, windowsCheck("www.google.com"))
+			//checkWindowsConnectivity(f, windowsPod.ObjectMeta.Name, "www.google.com")
 
-			By("checking connectivity from linux to windows")
-			checkLinuxConnectivity(f, linuxPod.ObjectMeta.Name, windowsPod.Status.PodIP, 80)
+			By("checking connectivity from Linux to Windows")
+			assertConsistentConnectivity(f, linuxPod.ObjectMeta.Name, linuxOS, linuxCheck(windowsPod.Status.PodIP, 80))
+			//checkLinuxConnectivity(f, linuxPod.ObjectMeta.Name, windowsPod.Status.PodIP, 80)
 
-			By("checking connectivity from windows to linux")
-			checkWindowsConnectivity(f, windowsPod.ObjectMeta.Name, linuxPod.Status.PodIP)
+			By("checking connectivity from Windows to Linux")
+			assertConsistentConnectivity(f, windowsPod.ObjectMeta.Name, windowsOS, windowsCheck(linuxPod.Status.PodIP))
+			//checkWindowsConnectivity(f, windowsPod.ObjectMeta.Name, linuxPod.Status.PodIP)
 
 		})
 
 	})
 })
 
-func checkLinuxConnectivity(f *framework.Framework, podName string, address string, port int) {
-	nc := fmt.Sprintf("nc -vz %s %v", address, port)
-	cmd := []string{"/bin/sh", "-c", nc}
+func assertConsistentConnectivity(f *framework.Framework, podName string, os string, cmd []string) {
 	Consistently(func() error {
 		By(fmt.Sprintf("checking connectivity of %s-container in %s", os, podName))
 		_, _, err := f.ExecCommandInContainerWithFullOutput(podName, os+"-container", cmd...)
@@ -80,18 +82,20 @@ func checkLinuxConnectivity(f *framework.Framework, podName string, address stri
 	}).ShouldNot(HaveOccurred())
 }
 
-var {
-	timeout = 10
+func linuxCheck(address string, port int) string {
+	nc := fmt.Sprintf("nc -vz %s %v", address, port)
+	cmd := []string{"/bin/sh", "-c", nc}
+	return cmd
 }
 
-func checkWindowsConnectivity(f *framework.Framework, podName string, address string) {
+var (
+	timeout = 10
+)
+
+func windowsCheck(address string) {
 	curl := fmt.Sprintf("curl.exe %s --connect-timeout %v --fail", address, timeout)
 	cmd := []string{"cmd", "/c", curl}
-	Consistently(func() error {
-		By(fmt.Sprintf("checking connectivity of %s-container in %s", os, podName))
-		, _, err := f.ExecCommandInContainerWithFullOutput(podName, os+"-container", cmd...)
-		return err
-	}).ShouldNot(HaveOccurred())
+	return cmd
 }
 
 func createTestPod(f *framework.Framework, image string, os string) *v1.Pod {
